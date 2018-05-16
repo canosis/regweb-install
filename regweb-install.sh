@@ -132,6 +132,13 @@ DS_REGWEB_PASS="regweb"
 
 
 ####
+#### Dir3Caib
+####
+
+DIR3_TIMESTAMP="true"
+
+
+####
 #### PAQUETS
 ####
 
@@ -970,6 +977,64 @@ pause
 
 inst_dir3(){
 echo "### instal·lant dir3caib"
+echo -n "#### creant fitxer de propietats dir3caib-properties-service.xml: "
+
+F_PROPSDIR3="${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/dir3caib-properties-service.xml"
+( cat << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<server>
+    <mbean code="org.jboss.varia.property.SystemPropertiesService" name="jboss:type=Service,name=Dir3caibSystemProperties">
+        <attribute name="Properties">
+	    <!-- Propietat que indica als projectes que activins les caracteristiques
+                 especials requerides en l'entorn de la CAIB (Govern Balear) si es true -->
+
+	    <!-- Lenguaje por defecto de la aplicación -->
+	    es.caib.dir3caib.defaultlanguage=ca
+	    <!-- Indicamos si estamos en un entorno CAIB -->
+	    es.caib.dir3caib.iscaib=$REGWEB_ISCAIB
+	    <!-- Indicamos si se quiere modo desarrollo. Funcionalidades extra -->
+            es.caib.dir3caib.development=false
+	    <!-- Se indica si se quiere que se muestre la hora en el pie de página de la aplicación -->
+            es.caib.dir3caib.showtimestamp=$DIR3_TIMESTAMP
+
+	    <!-- Configuración del Dialecto de la BBDD -->
+	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.MySQLDialect      
+	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.DB2Dialect
+	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+	    # es.caib.dir3caib.hibernate.dialect=net.sf.hibernate.dialect.Oracle9Dialect
+	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.Oracle10gDialect
+	    es.caib.dir3caib.hibernate.query.substitutions=true 1, false 0
+
+	    <!-- Directorio base para los archivos generales
+                 Directorio donde se guardan los archivos CSV descargados del los WS de dir3 de Madrid-->
+            es.caib.dir3caib.archivos.path=D:/dades/dades/Proyectos/SICRES3/dir3caib/archivos/
+
+
+	    <!-- Autentificación para los dir3ws (Directorio Común en Madrid) es necesario estar dentro de la REDSARA -->
+            <!--endpoints de ws-->
+            es.caib.dir3caib.catalogo.endpoint=http://pre-dir3ws.redsara.es/directorio/services/SC21CT_VolcadoCatalogos
+            es.caib.dir3caib.unidad.endpoint=http://pre-dir3ws.redsara.es/directorio/services/SD01UN_DescargaUnidades
+            es.caib.dir3caib.oficina.endpoint=http://pre-dir3ws.redsara.es/directorio/services/SD02OF_DescargaOficinas
+
+	    <!-- Usuario y Password de los dir3ws -->
+	    es.caib.dir3caib.dir3ws.user=regwebCAIB
+            es.caib.dir3caib.dir3ws.pass=password
+
+	    <!-- Expresión Cron de la Hora a la que se debe realizar la Sincronización DIR3. El ejemplo corresponde a una sincronización a las 3:00 de la madrugada -->
+	    es.caib.dir3caib.cronExpression=0 0 3 1/1 * ? *
+
+	    <!--Valores por defecto para el formulario de la búsqueda de Unidades y Oficinas-->
+	    es.caib.dir3caib.busqueda.administracion=2
+	    es.caib.dir3caib.busqueda.comunidad=4
+
+        </attribute>
+    </mbean>
+</server>
+EOF
+
+) > "$F_PROPSDIR3"
+echo "OK"
 
 
 }
