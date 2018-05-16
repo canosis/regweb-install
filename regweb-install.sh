@@ -113,7 +113,7 @@ REGWEB_RUTA_FITXERS="/opt/regweb-fitxers"
 
 # 2.3.3.- Autenticació i Autorització per Usuaris Persona
 # aquests són els usuaris d'administració i gestió del
-# sistema, no els usuaris de la pròpia aplicació portafib
+# sistema, no els usuaris de la pròpia aplicació regweb
 
 # sistema d'autenticació. pot ser bbdd o ldap. en cas de
 # utilitzar ldap s'utilitzaran les dades del plugin userinfo
@@ -123,6 +123,12 @@ AUTH_PERSONA_DS_URL="jdbc:postgresql://localhost:5432/seycon"
 AUTH_PERSONA_DS_DRIVER="org.postgresql.Driver"
 AUTH_PERSONA_DS_USER="seycon"
 AUTH_PERSONA_DS_PASS="seycon"
+
+# ds per la bbdd regweb d'usuaris d'aplicació
+DS_REGWEB_URL="jdbc:postgresql://localhost:5432/regweb"
+DS_REGWEB_DRIVER="org.postgresql.Driver"
+DS_REGWEB_USER="regweb"
+DS_REGWEB_PASS="regweb"
 
 
 ####
@@ -199,6 +205,7 @@ PAQUET_METADATA HTTP_PAQUET_METADATA PAQUET_CXF HTTP_PAQUET_CXF
 SCRIPT_INICI EAR_REGWEB HTTP_EAR_REGWEB
 REGWEB_ISCAIB SIR_URL REGWEB_RUTA_FITXERS
 AUTH_PERSONA AUTH_PERSONA_DS_URL AUTH_PERSONA_DS_DRIVER AUTH_PERSONA_DS_USER AUTH_PERSONA_DS_PASS
+DS_REGWEB_URL DS_REGWEB_DRIVER DS_REGWEB_USER DS_REGWEB_PASS
 "
 
     for c in $CONVARS ; do
@@ -645,12 +652,11 @@ if [ "$POSTGRESQL_JAR" != "" ]; then
 	    check_err "$?"
 	fi
     fi
-    cp -vf "$POSTGRESQL_JAR" "${DIR_BASE}/jboss/common/lib/"
+    cp -f "$POSTGRESQL_JAR" "${DIR_BASE}/jboss/common/lib/"
+    echo "OK"
 fi
 
-
 pause
-
 }
 
 
@@ -753,7 +759,7 @@ F_PROPS="${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/regweb3-properties-s
             <!-- Caib -->
             es.caib.regweb3.iscaib=$REGWEB_ISCAIB
 
-            <!-- Url de WS SIR -- http://localhost:8380/services -->
+            <!-- Url de WS SIR - http://localhost:8380/services -->
             es.caib.regweb3.sir.serverbase=$SIR_URL
 
             <!-- Directorio base para los archivos generales -->
@@ -789,13 +795,14 @@ else
 
 case $AUTH_PERSONA in
     bbdd)
-	echo -n "### Comprovant accés a la bbdd d'usuaris persona"
+	echo -n "### Comprovant accés a la bbdd d'usuaris persona: "
 	CHECK_URI=`echo "${AUTH_PERSONA_DS_URL//jdbc:/}"`
 	PGUSER="$AUTH_PERSONA_DS_USER"
 	PGPASSWORD="$AUTH_PERSONA_DS_PASS"
 	# el psql necessita les variables exportades explícitament
 	export PGUSER PGPASSWORD
-	psql -d "$CHECK_URI" -A -t -c "select count(*) from sc_wl_usuari"
+	# psql -d "$CHECK_URI" -A -t -c "select count(*) from sc_wl_usuari"
+	psql -d "$CHECK_URI" -A -t -c "select * from sc_wl_usugru where ugr_codgru='RWE_SUPERADMIN'" | grep -m1 RWE_SUPERADMIN
 	if [ "$?" != "0" ]; then
 	    echo "ERROR: problemes en connectar a la BBDD"
 	    echo "Estau segurs que voleu continuar? s/n: "
@@ -886,19 +893,7 @@ EOF
     ;;
 esac
 
-# afegim també la part d'autenticació d'usuaris Aplicació
 POLTEXT="$POLTEXT
-
-	<!-- BBDD Usuaris Aplicació -->
-	<login-module code=\"org.jboss.security.auth.spi.DatabaseServerLoginModule\" flag=\"sufficient\">
-	    <module-option name=\"dsJndiName\">java:/es.caib.portafib.db</module-option>
-	    <module-option name=\"principalsQuery\">
-		SELECT contrasenya FROM pfi_usuariaplicacio WHERE usuariaplicacioid = ?
-	    </module-option>
-	    <module-option name=\"rolesQuery\">
-		SELECT roleid, 'Roles' FROM pfi_roleusuariaplicacio where usuariaplicacioid = ?
-	    </module-option>
-	</login-module>
 
 	</authentication>
     </application-policy>
@@ -916,88 +911,17 @@ fi
 }
 
 
-conf_plugins(){
-echo "##### configuracions de plugins "
-
-# 2.3.3.- Configurar Coes
-echo -n "### configurant coes de correu: "
-F_CORREU_QUEUE="${DIR_BASE}/jboss/server/${INSTANCIA}/deployportafib/portafib-mailsqueue-service.xml"
-( cat << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-
-<mbean code="org.jboss.jms.server.destination.QueueService" name="jboss.messaging.destination:service=Queue,name=jms/es.caib.portafib.PortaFIBMailsQueue" xmbean-dd="xmdesc/Queue-xmbean.xml">
-    <depends optional-attribute-name="ServerPeer">jboss.messaging:service=ServerPeer</depends>
-    <depends>jboss.messaging:service=PostOffice</depends>
-    <attribute name="JNDIName">jms/es.caib.portafib.PortaFIBMailsQueue</attribute>
-    <attribute name="RedeliveryDelay">10000</attribute>
-    <attribute name="MaxDeliveryAttempts">3</attribute>
-</mbean>
-
-EOF
-) > "$F_CORREU_QUEUE"
-echo "OK"
-
-# 2.3.4.- Configurar Servidor de Correu
-echo -n "### configurant servidor de correu: "
-F_CORREU_SERVER="${DIR_BASE}/jboss/server/${INSTANCIA}/deployportafib/portafib-mail-service.xml"
-( cat << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<server>
-
-  <!-- ==================================================================== -->
-  <!-- Mail Connection Factory                                              -->
-  <!-- ==================================================================== -->
-
-  <mbean code="org.jboss.mail.MailService" name="jboss:service=portafibMail">
-    <attribute name="JNDIName">java:/es.caib.portafib.mail</attribute>
-    <attribute name="Configuration">
-      <!-- A test configuration -->
-      <configuration>
-        <!-- Change to your mail server prototocol -->
-        <property name="mail.store.protocol" value="pop3"/>
-        <property name="mail.transport.protocol" value="smtp"/>
-
-        <!-- Change to the user who will receive mail  -->
-        <property name="mail.user" value="$CORREU_USUARI"/>
-
-        <!-- Change to the mail server  -->
-        <property name="mail.pop3.host" value="$CORREU_POP3"/>
-
-        <!-- Change to the SMTP gateway server -->
-        <property name="mail.smtp.host" value="$CORREU_SMTP"/>
-
-        <!-- The mail server port -->
-        <property name="mail.smtp.port" value="25"/>
-
-        <!-- Change to the address mail will be from  -->
-        <property name="mail.from" value="$CORREU_ORIGEN"/>
-
-        <!-- Enable debugging output from the javamail classes -->
-        <property name="mail.debug" value="false"/>
-      </configuration>
-    </attribute>
-    <depends>jboss:service=Naming</depends>
-  </mbean>
-</server>
-EOF
-) > "$F_CORREU_SERVER"
-echo "OK"
-
-
-pause
-}
-
 
 conf_ds(){
 
 echo -n "### Comprovant accés a la bbdd: "
-# jdbc:postgresql://localhost:5432/portafib
-CHECK_URI=`echo "${DS_PORTAFIB_URL//jdbc:/}"`
-PGUSER="$DS_PORTAFIB_USER"
-PGPASSWORD="$DS_PORTAFIB_PASS"
+CHECK_URI=`echo "${DS_REGWEB_URL//jdbc:/}"`
+PGUSER="$DS_REGWEB_USER"
+PGPASSWORD="$DS_REGWEB_PASS"
 # el psql necessita les variables exportades explícitament
 export PGUSER PGPASSWORD
-psql -d "$CHECK_URI" -A -t -c "select count(*) from pfi_role"
+# psql -d "$CHECK_URI" -A -t -c "select count(*) from pfi_role"
+psql -d "$CHECK_URI" -A -t -c "select * from rwe_rol" | grep -m1 RWE_SUPERADMIN
 if [ "$?" != "0" ]; then
     echo "ERROR: problemes en connectar a la BBDD"
     echo "Estau segurs que voleu continuar? s/n: "
@@ -1011,23 +935,25 @@ if [ "$?" != "0" ]; then
     fi
 fi
 
-
-echo -n "### Creant DS portafib per usuaris de la aplicació: "
+echo -n "### Creant DS regweb per usuaris de la aplicació: "
 
 # 2.5.- DataSources
 ( cat << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <datasources>
-    <local-tx-datasource>
-        <jndi-name>es.caib.portafib.db</jndi-name>
-        <connection-url>$DS_PORTAFIB_URL</connection-url>
-        <driver-class>$DS_PORTAFIB_DRIVER</driver-class>
-        <user-name>$DS_PORTAFIB_USER</user-name>
-        <password>$DS_PORTAFIB_PASS</password>
-    </local-tx-datasource>
+  <local-tx-datasource>
+    <jndi-name>es.caib.regweb3.db</jndi-name>
+
+    <!--  POSTGRESQL   -->
+    <connection-url>$DS_REGWEB_URL</connection-url>
+    <driver-class>$DS_REGWEB_DRIVER</driver-class>
+    <user-name>$DS_REGWEB_USER</user-name>
+    <password>$DS_REGWEB_PASS</password>
+
+  </local-tx-datasource>
 </datasources>
 EOF
-) > "${DIR_BASE}/jboss/server/${INSTANCIA}/deployportafib/portafib-ds.xml"
+) > "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/regweb-ds.xml"
 
 echo "OK"
 
@@ -1035,22 +961,43 @@ pause
 
 }
 
+conf_plugins(){
+echo "### configuracions de plugins "
+
+
+pause
+}
+
+inst_dir3(){
+echo "### instal·lant dir3caib"
+
+
+}
+
+
 
 bin_ear(){
 # baixar/copiar les ear
-
-echo -n "### copiant ear PORTAFIB: "
-if [ ! -e "$EAR_PORTAFIB" ]; then
-	if [ "$HTTP_EAR_PORTAFIB" == "" ]; then
-	    echo "ERROR: No s'ha trobat el paquet [$EAR_PORTAFIB]"
+echo -n "### copiant ear REGWEB: "
+if [ ! -e "$EAR_REGWEB" ]; then
+	if [ "$HTTP_EAR_REGWEB" == "" ]; then
+	    echo "ERROR: No s'ha trobat el paquet [$EAR_REGWEB]"
 	    exit 1
 	else
-	    echo "### baixant el paquet des de [$HTTP_EAR_PORTAFIB]"
-	    wget --no-check-certificate --no-cookies -nv -O "$EAR_PORTAFIB" "$HTTP_EAR_PORTAFIB"
+	    echo "### baixant el paquet des de [$HTTP_EAR_REGWEB]"
+	    wget --no-check-certificate --no-cookies -nv -O "$EAR_REGWEB" "$HTTP_EAR_REGWEB"
 	    check_err "$?"
 	fi
 fi
-cp -v "$EAR_PORTAFIB" "${DIR_BASE}/jboss/server/${INSTANCIA}/deployportafib/"
+
+mkdir -p "/tmp/.regwebtmpear"
+cd "/tmp/.regwebtmpear"
+unzip -joq "$EAR_REGWEB" \*.ear
+mv -v *.ear "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
+
+cd "$CDIR"
+
+rmdir "/tmp/.regwebtmpear"
 
 pause
 
@@ -1062,7 +1009,7 @@ custom(){
     # configuració LDAP
 
     # pujam la verbositat del log de seguritat
-    sed -i 's|   <!-- Limit the org.apache category|\t<category name="org.jboss.security">\n\t\t<priority value="TRACE"/>\n\t</category>\n\n   <!-- Limit the org.apache category|' "${DIR_BASE}/jboss/server/${INSTANCIA}/conf/jboss-log4j.xml"
+    # sed -i 's|   <!-- Limit the org.apache category|\t<category name="org.jboss.security">\n\t\t<priority value="TRACE"/>\n\t</category>\n\n   <!-- Limit the org.apache category|' "${DIR_BASE}/jboss/server/${INSTANCIA}/conf/jboss-log4j.xml"
 
 pause
 
@@ -1109,10 +1056,10 @@ for i in "$@"; do
 	    instancia
 	    conf_jboss
 	    conf_properties
-	    echo "DEBUG - `date` - surt" ; exit 0
-	    conf_plugins
 	    conf_auth
 	    conf_ds
+	    # echo "DEBUG - `date` - surt" ; exit 0
+	    conf_plugins
 
 	    bin_ear
 	    custom
@@ -1141,7 +1088,7 @@ for i in "$@"; do
 	    lib_extras
 	;;
 	-c)
-	    # a portafib no se fa servir
+	    # a regweb no se fa servir
 	    exit 1
 	    f_conf
 	    precheck
