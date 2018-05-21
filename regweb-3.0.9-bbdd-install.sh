@@ -4,7 +4,7 @@
 # s'ha d'executar al directori on hi ha els scripts sql
 
 
-SERVER="darkseid.imasmallorca.net"	# servidor
+SERVER="localhost"		# servidor
 
 DATABASE_TYPE="postgresql"	# tipus de base de dades: oracle / postgresql
 
@@ -144,8 +144,8 @@ case $DATABASE_TYPE in
     ;;
     postgre|postgresql|p)
 	paquets
-	check_conn postgre
 	admin_postgres
+	check_conn postgre
 	postgres_scripts
     ;;
     *)
