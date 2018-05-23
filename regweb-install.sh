@@ -136,7 +136,19 @@ DS_REGWEB_PASS="regweb"
 ####
 
 DIR3_TIMESTAMP="true"
+DIR3_WS_USER="regwebCAIB"
+DIR3_WS_PASS="password"
 
+# dialecte hibernate. possibles valors:
+# org.hibernate.dialect.PostgreSQLDialect org.hibernate.dialect.MySQLDialect org.hibernate.dialect.DB2Dialect
+# org.hibernate.dialect.SQLServerDialect net.sf.hibernate.dialect.Oracle9Dialect org.hibernate.dialect.Oracle10gDialect
+HIB_DIALECT="org.hibernate.dialect.PostgreSQLDialect"
+DIR3_RUTA_FITXERS="/opt/dir3caib_fitxers"
+
+DS_DIR3_URL="jdbc:postgresql://localhost:5432/dir3caib"
+DS_DIR3_DRIVER="org.postgresql.Driver"
+DS_DIR3_USER="dir3caib"
+DS_DIR3_PASS="dir3caib"
 
 ####
 #### PAQUETS
@@ -149,8 +161,7 @@ DIR_PAQUETS="/opt/paquets"
 PAQUET_JAVA_JDK="${DIR_PAQUETS}/jdk-6u45-linux-x64.bin"
 PAQUET_JAVA_MD5="40c1a87563c5c6a90a0ed6994615befe"
 DIR_JAVA_JDK="jdk1.6.0_45"
-HTTP_PAQUET_JAVA_JDK="http://mirrors.linuxeye.com/jdk/jdk-6u45-linux-x64.bin" # OPCIONAL: URL des d'on baixar el paquet
-
+HTTP_PAQUET_JAVA_JDK="http://attic-distfiles.pld-linux.org/distfiles/by-md5/4/0/40c1a87563c5c6a90a0ed6994615befe/jdk-6u45-linux-x64.bin" # OPCIONAL: URL des d'on baixar el paquet
 
 # ruta del paquet JBoss i nom del directori que se crea quan se descoprimeix
 PAQUET_JBOSS="${DIR_PAQUETS}/jboss-5.1.0.GA.zip"
@@ -176,7 +187,12 @@ SCRIPT_INICI="/etc/init.d/jboss-regweb-${ENTITAT}"
 
 # ears
 EAR_REGWEB="${DIR_PAQUETS}/regweb3.ear"
+EAR_REGWEB_ZIP="${DIR_PAQUETS}/release-regweb3-3.0.9.zip"
 HTTP_EAR_REGWEB="https://github.com/GovernIB/registre/releases/download/registre-3.0.9/release-regweb3-3.0.9.zip"
+
+EAR_DIR3CAIB="${DIR_PAQUETS}/dir3caib.ear"
+EAR_DIR3CAIB_ZIP="${DIR_PAQUETS}/release-dir3caib-1.0.7.zip"
+HTTP_EAR_DIR3CAIB="https://github.com/GovernIB/dir3caib/releases/download/dir3caib-1.0.7/release-dir3caib-1.0.7.zip"
 
 EOF
 	) >> "$FTEMPLATE"
@@ -209,10 +225,13 @@ PAQUET_JAVA_JDK DIR_JAVA_JDK HTTP_PAQUET_JAVA_JDK PAQUET_JAVA_MD5
 PAQUET_JBOSS DIR_JBOSS HTTP_PAQUET_JBOSS
 ORACLE_JAR HTTP_ORACLE_JAR POSTGRESQL_JAR HTTP_POSTGRESQL_JAR 
 PAQUET_METADATA HTTP_PAQUET_METADATA PAQUET_CXF HTTP_PAQUET_CXF
-SCRIPT_INICI EAR_REGWEB HTTP_EAR_REGWEB
+SCRIPT_INICI EAR_REGWEB EAR_REGWEB_ZIP HTTP_EAR_REGWEB
 REGWEB_ISCAIB SIR_URL REGWEB_RUTA_FITXERS
 AUTH_PERSONA AUTH_PERSONA_DS_URL AUTH_PERSONA_DS_DRIVER AUTH_PERSONA_DS_USER AUTH_PERSONA_DS_PASS
 DS_REGWEB_URL DS_REGWEB_DRIVER DS_REGWEB_USER DS_REGWEB_PASS
+DIR3_TIMESTAMP DIR3_WS_USER DIR3_WS_PASS HIB_DIALECT DIR3_RUTA_FITXERS
+DS_DIR3_URL DS_DIR3_DRIVER DS_DIR3_USER DS_DIR3_PASS
+EAR_DIR3CAIB EAR_DIR3CAIB_ZIP HTTP_EAR_DIR3CAIB
 "
 
     for c in $CONVARS ; do
@@ -951,7 +970,6 @@ echo -n "### Creant DS regweb per usuaris de la aplicació: "
   <local-tx-datasource>
     <jndi-name>es.caib.regweb3.db</jndi-name>
 
-    <!--  POSTGRESQL   -->
     <connection-url>$DS_REGWEB_URL</connection-url>
     <driver-class>$DS_REGWEB_DRIVER</driver-class>
     <user-name>$DS_REGWEB_USER</user-name>
@@ -998,17 +1016,12 @@ F_PROPSDIR3="${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/dir3caib-propert
             es.caib.dir3caib.showtimestamp=$DIR3_TIMESTAMP
 
 	    <!-- Configuración del Dialecto de la BBDD -->
-	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.MySQLDialect      
-	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.DB2Dialect
-	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
-	    # es.caib.dir3caib.hibernate.dialect=net.sf.hibernate.dialect.Oracle9Dialect
-	    # es.caib.dir3caib.hibernate.dialect=org.hibernate.dialect.Oracle10gDialect
+	    es.caib.dir3caib.hibernate.dialect=$HIB_DIALECT
 	    es.caib.dir3caib.hibernate.query.substitutions=true 1, false 0
 
 	    <!-- Directorio base para los archivos generales
                  Directorio donde se guardan los archivos CSV descargados del los WS de dir3 de Madrid-->
-            es.caib.dir3caib.archivos.path=D:/dades/dades/Proyectos/SICRES3/dir3caib/archivos/
+            es.caib.dir3caib.archivos.path="$DIR3_RUTA_FITXERS"
 
 
 	    <!-- Autentificación para los dir3ws (Directorio Común en Madrid) es necesario estar dentro de la REDSARA -->
@@ -1018,8 +1031,8 @@ F_PROPSDIR3="${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/dir3caib-propert
             es.caib.dir3caib.oficina.endpoint=http://pre-dir3ws.redsara.es/directorio/services/SD02OF_DescargaOficinas
 
 	    <!-- Usuario y Password de los dir3ws -->
-	    es.caib.dir3caib.dir3ws.user=regwebCAIB
-            es.caib.dir3caib.dir3ws.pass=password
+	    es.caib.dir3caib.dir3ws.user=$DIR3_WS_USER
+            es.caib.dir3caib.dir3ws.pass=$DIR3_WS_PASS
 
 	    <!-- Expresión Cron de la Hora a la que se debe realizar la Sincronización DIR3. El ejemplo corresponde a una sincronización a las 3:00 de la madrugada -->
 	    es.caib.dir3caib.cronExpression=0 0 3 1/1 * ? *
@@ -1037,35 +1050,88 @@ EOF
 echo "OK"
 
 
+echo -n "#### creant datasource : "
+( cat << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>es.caib.dir3caib.db</jndi-name>
+
+    <connection-url>$DS_DIR3_URL</connection-url>
+    <driver-class>$DS_DIR3_DRIVER</driver-class>
+    <user-name>$DS_DIR3_USER</user-name>
+    <password>$DS_DIR3_PASS</password>
+
+  </local-tx-datasource>
+</datasources>
+EOF
+) > "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/dir3caib-ds.xml"
+echo "OK"
+
+if [ ! -e "$DIR3_RUTA_FITXERS" ]; then
+    echo -n "#### creant directori magatzem de dir3: "
+    mkdir -pv "$DIR3_RUTA_FITXERS"
+fi
+
+if [ -e "$EAR_DIR3CAIB" ]; then
+    echo -n "#### copiant ear dir3caib: "
+    cp -v "$EAR_DIR3CAIB" "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
+else
+    if [ ! -e "$EAR_DIR3CAIB_ZIP" ]; then
+	if [ "$HTTP_EAR_DIR3CAIB" == "" ]; then
+	    echo "ERROR: No s'ha trobat el paquet [$EAR_DIR3CAIB]"
+	    exit 1
+	else
+	    echo "#### baixant el paquet des de [$HTTP_EAR_DIR3CAIB]"
+	    wget --no-check-certificate --no-cookies -nv -O "$EAR_DIR3CAIB_ZIP" "$HTTP_EAR_DIR3CAIB"
+	    check_err "$?"
+	fi
+    fi
+    echo "#### descomprimint ear des de [$EAR_DIR3CAIB_ZIP]"
+    mkdir -p "/tmp/.dir3tmpear"
+    cd "/tmp/.dir3tmpear"
+    unzip -joq "$EAR_DIR3CAIB_ZIP" \*.ear
+    echo -n "#### moguent ear dir3caib: "
+    mv -v *.ear "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
+
+    cd "$CDIR"
+
+    rmdir "/tmp/.dir3tmpear"
+fi
+
+pause
 }
 
 
 
 bin_ear(){
 # baixar/copiar les ear
-echo -n "### copiant ear REGWEB: "
-if [ ! -e "$EAR_REGWEB" ]; then
+if [ -e "$EAR_REGWEB" ]; then
+    echo -n "### copiant ear REGWEB: "
+    cp -v "$EAR_REGWEB" "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
+else
+    if [ ! -e "$EAR_REGWEB_ZIP" ]; then
 	if [ "$HTTP_EAR_REGWEB" == "" ]; then
-	    echo "ERROR: No s'ha trobat el paquet [$EAR_REGWEB]"
+	    echo "ERROR: No s'ha trobat el paquet [$EAR_REGWEB_ZIP]"
 	    exit 1
 	else
 	    echo "### baixant el paquet des de [$HTTP_EAR_REGWEB]"
-	    wget --no-check-certificate --no-cookies -nv -O "$EAR_REGWEB" "$HTTP_EAR_REGWEB"
+	    wget --no-check-certificate --no-cookies -nv -O "$EAR_REGWEB_ZIP" "$HTTP_EAR_REGWEB"
 	    check_err "$?"
 	fi
+    fi
+    echo "#### descomprimint ear des de [$EAR_REGWEB_ZIP]"
+    mkdir -p "/tmp/.regwebtmpear"
+    cd "/tmp/.regwebtmpear"
+    unzip -joq "$EAR_REGWEB_ZIP" \*.ear
+    echo -n "#### moguent ear regweb: "
+    mv -v *.ear "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
+
+    cd "$CDIR"
+    rmdir "/tmp/.regwebtmpear"
 fi
 
-mkdir -p "/tmp/.regwebtmpear"
-cd "/tmp/.regwebtmpear"
-unzip -joq "$EAR_REGWEB" \*.ear
-mv -v *.ear "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
-
-cd "$CDIR"
-
-rmdir "/tmp/.regwebtmpear"
-
 pause
-
 }
 
 custom(){
@@ -1125,7 +1191,7 @@ for i in "$@"; do
 	    conf_ds
 	    # echo "DEBUG - `date` - surt" ; exit 0
 	    conf_plugins
-
+	    inst_dir3
 	    bin_ear
 	    custom
 	    # ja no executam res més
