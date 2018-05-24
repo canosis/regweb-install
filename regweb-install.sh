@@ -139,11 +139,12 @@ DIR3_TIMESTAMP="true"
 DIR3_WS_USER="regwebCAIB"
 DIR3_WS_PASS="password"
 
+DIR3_RUTA_FITXERS="/opt/dir3caib_fitxers/"	# millor que acabi en barra [/]
+
 # dialecte hibernate. possibles valors:
 # org.hibernate.dialect.PostgreSQLDialect org.hibernate.dialect.MySQLDialect org.hibernate.dialect.DB2Dialect
 # org.hibernate.dialect.SQLServerDialect net.sf.hibernate.dialect.Oracle9Dialect org.hibernate.dialect.Oracle10gDialect
 HIB_DIALECT="org.hibernate.dialect.PostgreSQLDialect"
-DIR3_RUTA_FITXERS="/opt/dir3caib_fitxers/"	# millor que acabi en barra [/]
 
 DS_DIR3_URL="jdbc:postgresql://localhost:5432/dir3caib"
 DS_DIR3_DRIVER="org.postgresql.Driver"
@@ -822,6 +823,7 @@ else
 case $AUTH_PERSONA in
     bbdd)
 	echo -n "### Comprovant accés a la bbdd d'usuaris persona: "
+	# rols regweb: RWE_SUPERADMIN, RWE_ADMIN, RWE_USER
 	CHECK_URI=`echo "${AUTH_PERSONA_DS_URL//jdbc:/}"`
 	PGUSER="$AUTH_PERSONA_DS_USER"
 	PGPASSWORD="$AUTH_PERSONA_DS_PASS"
@@ -830,7 +832,9 @@ case $AUTH_PERSONA in
 	# psql -d "$CHECK_URI" -A -t -c "select count(*) from sc_wl_usuari"
 	psql -d "$CHECK_URI" -A -t -c "select * from sc_wl_usugru where ugr_codgru='RWE_SUPERADMIN'" | grep -m1 RWE_SUPERADMIN
 	if [ "$?" != "0" ]; then
-	    echo "ERROR: problemes en connectar a la BBDD"
+	    echo ""
+	    echo "ERROR: problemes en connectar a la BBDD amb la URI [$AUTH_PERSONA_DS_URL]"
+	    echo "Comprovau que podeu connetar a la base de dades i que els usuaris i rols necessaris estan creats."
 	    echo "Estau segurs que voleu continuar? s/n: "
 	    read BBDDOK
 	    if [ "$BBDDOK" == "s" ] || [ "$OK" == "S" ]; then
@@ -947,9 +951,12 @@ PGPASSWORD="$DS_REGWEB_PASS"
 # el psql necessita les variables exportades explícitament
 export PGUSER PGPASSWORD
 # psql -d "$CHECK_URI" -A -t -c "select count(*) from pfi_role"
-psql -d "$CHECK_URI" -A -t -c "select * from rwe_rol" | grep -m1 RWE_SUPERADMIN
+# psql -d "$CHECK_URI" -A -t -c "select * from rwe_rol" | grep -m1 RWE_SUPERADMIN
+psql -d "$CHECK_URI" -A -t -c "select * from rwe_rol where nombre='RWE_ADMIN'" | grep -m1 RWE_ADMIN
 if [ "$?" != "0" ]; then
-    echo "ERROR: problemes en connectar a la BBDD"
+    echo ""
+    echo "ERROR: problemes en connectar a la BBDD amb la URI [${DS_REGWEB_URL}]"
+    echo "Comprovau que podeu connetar a la base de dades i que els usuaris i rols necessaris estan creats."
     echo "Estau segurs que voleu continuar? s/n: "
     read BBDDOK
     if [ "$BBDDOK" == "s" ] || [ "$OK" == "S" ]; then
@@ -995,7 +1002,7 @@ pause
 
 inst_dir3(){
 echo "### instal·lant dir3caib"
-echo -n "#### creant fitxer de propietats dir3caib-properties-service.xml: "
+echo -n "### DIR3CAIB - creant fitxer de propietats dir3caib-properties-service.xml: "
 
 F_PROPSDIR3="${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/dir3caib-properties-service.xml"
 ( cat << EOF
@@ -1050,7 +1057,41 @@ EOF
 echo "OK"
 
 
-echo -n "#### creant datasource : "
+case $AUTH_PERSONA in
+    bbdd)
+	echo -n "### DIR3CAIB - Comprovant accés a la bbdd d'usuaris persona: "
+	CHECK_URI=`echo "${AUTH_PERSONA_DS_URL//jdbc:/}"`
+	PGUSER="$AUTH_PERSONA_DS_USER"
+	PGPASSWORD="$AUTH_PERSONA_DS_PASS"
+	# el psql necessita les variables exportades explícitament
+	export PGUSER PGPASSWORD
+	# psql -d "$CHECK_URI" -A -t -c "select count(*) from sc_wl_usuari"
+	psql -d "$CHECK_URI" -A -t -c "select * from sc_wl_usugru where ugr_codgru='DIR_ADMIN'" | grep -m1 DIR_ADMIN
+	if [ "$?" != "0" ]; then
+	    echo ""
+	    echo "ERROR: problemes en connectar a la BBDD amb la URI [$AUTH_PERSONA_DS_URL]"
+	    echo "Estau segurs que voleu continuar? s/n: "
+	    read BBDDOK
+	    if [ "$BBDDOK" == "s" ] || [ "$OK" == "S" ]; then
+		echo "Continuant sense comprovació de la bbdd..."
+	    else
+		echo "Comprova la connexió a la bbdd i torna a executar l'script"
+	        echo "Sortint..."
+		exit 1
+    	    fi
+	fi
+    ;;
+    ldap)
+	echo "### Ja hauria d'estar configurat"
+    ;;
+    *)
+	# no hauria d'arribar mai aquí
+	echo "ERROR: no s'ha configurat correctament"
+	exit 1
+    ;;
+esac
+
+echo -n "### DIR3CAIB - creant datasource : "
 ( cat << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <datasources>
@@ -1069,12 +1110,12 @@ EOF
 echo "OK"
 
 if [ ! -e "$DIR3_RUTA_FITXERS" ]; then
-    echo -n "#### creant directori magatzem de dir3: "
+    echo -n "### DIR3CAIB - creant directori magatzem de dir3: "
     mkdir -pv "$DIR3_RUTA_FITXERS"
 fi
 
 if [ -e "$EAR_DIR3CAIB" ]; then
-    echo -n "#### copiant ear dir3caib: "
+    echo -n "### DIR3CAIB - copiant ear dir3caib: "
     cp -v "$EAR_DIR3CAIB" "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
 else
     if [ ! -e "$EAR_DIR3CAIB_ZIP" ]; then
@@ -1082,16 +1123,16 @@ else
 	    echo "ERROR: No s'ha trobat el paquet [$EAR_DIR3CAIB]"
 	    exit 1
 	else
-	    echo "#### baixant el paquet des de [$HTTP_EAR_DIR3CAIB]"
+	    echo "### DIR3CAIB - baixant el paquet des de [$HTTP_EAR_DIR3CAIB]"
 	    wget --no-check-certificate --no-cookies -nv -O "$EAR_DIR3CAIB_ZIP" "$HTTP_EAR_DIR3CAIB"
 	    check_err "$?"
 	fi
     fi
-    echo "#### descomprimint ear des de [$EAR_DIR3CAIB_ZIP]"
+    echo "### DIR3CAIB - descomprimint ear des de [$EAR_DIR3CAIB_ZIP]"
     mkdir -p "/tmp/.dir3tmpear"
     cd "/tmp/.dir3tmpear"
     unzip -joq "$EAR_DIR3CAIB_ZIP" \*.ear
-    echo -n "#### moguent ear dir3caib: "
+    echo -n "### DIR3CAIB - moguent ear dir3caib: "
     mv -v *.ear "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
 
     cd "$CDIR"
@@ -1120,11 +1161,11 @@ else
 	    check_err "$?"
 	fi
     fi
-    echo "#### descomprimint ear des de [$EAR_REGWEB_ZIP]"
+    echo "### descomprimint ear des de [$EAR_REGWEB_ZIP]"
     mkdir -p "/tmp/.regwebtmpear"
     cd "/tmp/.regwebtmpear"
     unzip -joq "$EAR_REGWEB_ZIP" \*.ear
-    echo -n "#### moguent ear regweb: "
+    echo -n "### moguent ear regweb: "
     mv -v *.ear "${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/"
 
     cd "$CDIR"
@@ -1235,10 +1276,20 @@ for i in "$@"; do
 	    precheck
 	    conf_properties
 	;;
+	-t)
+	    f_conf
+	    precheck
+	    conf_auth
+	;;
 	-d)
 	    f_conf
 	    precheck
 	    conf_ds
+	;;
+	-3)
+	    f_conf
+	    precheck
+	    inst_dir3
 	;;
 	-u)
 	    f_conf
