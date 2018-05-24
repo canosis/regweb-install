@@ -143,7 +143,7 @@ DIR3_WS_PASS="password"
 # org.hibernate.dialect.PostgreSQLDialect org.hibernate.dialect.MySQLDialect org.hibernate.dialect.DB2Dialect
 # org.hibernate.dialect.SQLServerDialect net.sf.hibernate.dialect.Oracle9Dialect org.hibernate.dialect.Oracle10gDialect
 HIB_DIALECT="org.hibernate.dialect.PostgreSQLDialect"
-DIR3_RUTA_FITXERS="/opt/dir3caib_fitxers"
+DIR3_RUTA_FITXERS="/opt/dir3caib_fitxers/"	# millor que acabi en barra [/]
 
 DS_DIR3_URL="jdbc:postgresql://localhost:5432/dir3caib"
 DS_DIR3_DRIVER="org.postgresql.Driver"
@@ -1021,7 +1021,7 @@ F_PROPSDIR3="${DIR_BASE}/jboss/server/${INSTANCIA}/deployregweb/dir3caib-propert
 
 	    <!-- Directorio base para los archivos generales
                  Directorio donde se guardan los archivos CSV descargados del los WS de dir3 de Madrid-->
-            es.caib.dir3caib.archivos.path="$DIR3_RUTA_FITXERS"
+            es.caib.dir3caib.archivos.path=$DIR3_RUTA_FITXERS
 
 
 	    <!-- Autentificación para los dir3ws (Directorio Común en Madrid) es necesario estar dentro de la REDSARA -->
