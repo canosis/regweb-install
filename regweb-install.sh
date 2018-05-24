@@ -104,7 +104,7 @@ REGWEB_ISCAIB="false"
 SIR_URL="http://localhost:8380/services"
 
 # ruta de magatzem de fitxers
-REGWEB_RUTA_FITXERS="/opt/regweb-fitxers"
+REGWEB_RUTA_FITXERS="/opt/regweb-fitxers/"
 
 
 ####
